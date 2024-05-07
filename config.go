@@ -55,4 +55,7 @@ type Config struct {
 
 	// WinCredPrefix is a string prefix to prepend to the key name
 	WinCredPrefix string
+
+	// Number of seconds to allow reuse of biometrics without prompting the user
+	BioMetricsAllowableReuseDuration int
 }

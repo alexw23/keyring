@@ -12,14 +12,15 @@ type BackendType string
 
 // All currently supported secure storage backends.
 const (
-	InvalidBackend       BackendType = ""
-	SecretServiceBackend BackendType = "secret-service"
-	KeychainBackend      BackendType = "keychain"
-	KeyCtlBackend        BackendType = "keyctl"
-	KWalletBackend       BackendType = "kwallet"
-	WinCredBackend       BackendType = "wincred"
-	FileBackend          BackendType = "file"
-	PassBackend          BackendType = "pass"
+	InvalidBackend                BackendType = ""
+	SecretServiceBackend          BackendType = "secret-service"
+	KeychainBackend               BackendType = "keychain"
+	DataProtectionKeychainBackend BackendType = "dp-keychain"
+	KeyCtlBackend                 BackendType = "keyctl"
+	KWalletBackend                BackendType = "kwallet"
+	WinCredBackend                BackendType = "wincred"
+	FileBackend                   BackendType = "file"
+	PassBackend                   BackendType = "pass"
 )
 
 // This order makes sure the OS-specific backends
@@ -29,6 +30,7 @@ var backendOrder = []BackendType{
 	WinCredBackend,
 	// MacOS
 	KeychainBackend,
+	DataProtectionKeychainBackend,
 	// Linux
 	SecretServiceBackend,
 	KWalletBackend,
