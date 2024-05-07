@@ -70,6 +70,8 @@ func (k *DataProtectionKeychain) Get(key string) (Item, error) {
 	query.SetMatchLimit(gokeychain.MatchLimitOne)
 	query.SetReturnAttributes(true)
 	query.SetReturnData(true)
+	query.SetUseDataProtectionKeychain(true)
+
 	err := query.SetAuthenticationContext(k.authenticationContext)
 	if err != nil {
 		return Item{}, err
@@ -108,6 +110,8 @@ func (k *DataProtectionKeychain) GetMetadata(key string) (Metadata, error) {
 	query.SetReturnAttributes(true)
 	query.SetReturnData(false)
 	query.SetReturnRef(true)
+	query.SetUseDataProtectionKeychain(true)
+
 	err := query.SetAuthenticationContext(k.authenticationContext)
 	if err != nil {
 		return Metadata{}, err
@@ -144,6 +148,8 @@ func (k *DataProtectionKeychain) updateItem(account string, data []byte) error {
 	queryItem.SetAccount(account)
 	queryItem.SetMatchLimit(gokeychain.MatchLimitOne)
 	queryItem.SetReturnAttributes(true)
+	queryItem.SetUseDataProtectionKeychain(true)
+
 	err := queryItem.SetAuthenticationContext(k.authenticationContext)
 	if err != nil {
 		return err
@@ -175,12 +181,13 @@ func (k *DataProtectionKeychain) Set(item Item) error {
 	kcItem.SetLabel(item.Label)
 	kcItem.SetDescription(item.Description)
 	kcItem.SetData(item.Data)
+	kcItem.SetUseDataProtectionKeychain(true)
 
 	if k.isSynchronizable && !item.KeychainNotSynchronizable {
 		kcItem.SetSynchronizable(gokeychain.SynchronizableYes)
 	}
 
-	kcItem.SetAccessControl(gokeychain.AccessControlFlags(k.accessControlFlags), k.accessConstraint)
+	kcItem.SetAccessControl(k.accessControlFlags, k.accessConstraint)
 
 	debugf("Adding service=%q, label=%q, account=%q", k.service, item.Label, item.Key)
 
@@ -203,6 +210,7 @@ func (k *DataProtectionKeychain) Remove(key string) error {
 	item.SetSecClass(gokeychain.SecClassGenericPassword)
 	item.SetService(k.service)
 	item.SetAccount(key)
+	item.SetUseDataProtectionKeychain(true)
 
 	debugf("Removing keychain item service=%q, account=%q", k.service, key)
 	err := gokeychain.DeleteItem(item)
@@ -210,7 +218,11 @@ func (k *DataProtectionKeychain) Remove(key string) error {
 		return ErrKeyNotFound
 	}
 
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to delete item from data protection keychain: %v", err)
+	}
+
+	return nil
 }
 
 func (k *DataProtectionKeychain) Keys() ([]string, error) {
@@ -219,6 +231,8 @@ func (k *DataProtectionKeychain) Keys() ([]string, error) {
 	query.SetService(k.service)
 	query.SetMatchLimit(gokeychain.MatchLimitAll)
 	query.SetReturnAttributes(true)
+	query.SetUseDataProtectionKeychain(true)
+
 	err := query.SetAuthenticationContext(k.authenticationContext)
 	if err != nil {
 		return nil, err
