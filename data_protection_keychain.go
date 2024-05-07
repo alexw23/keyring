@@ -15,31 +15,49 @@ type DataProtectionKeychain struct {
 
 	authenticationContext *gokeychain.AuthenticationContext
 
-	isSynchronizable         bool
-	isAccessibleWhenUnlocked bool
+	isSynchronizable   bool
+	accessControlFlags gokeychain.AccessControlFlags
+	accessConstraint   gokeychain.Accessible
 }
 
 func init() {
 	supportedBackends[DataProtectionKeychainBackend] = opener(func(cfg Config) (Keyring, error) {
+		if !gokeychain.CanUseDataProtectionKeychain() {
+			return nil, errors.New("SecAccessControl is not available on this platform")
+		}
+
 		var authCtxOptions gokeychain.AuthenticationContextOptions
-		var authCtx *gokeychain.AuthenticationContext
 
 		if cfg.BioMetricsAllowableReuseDuration > 0 {
 			authCtxOptions.AllowableReuseDuration = cfg.BioMetricsAllowableReuseDuration
+		} else if cfg.BioMetricsAllowableReuseDuration < 0 {
+			return nil, errors.New("BioMetricsAllowableReuseDuration must be greater than 0")
 		}
 
-		authCtx = gokeychain.CreateAuthenticationContext(authCtxOptions)
+		authCtx := gokeychain.CreateAuthenticationContext(authCtxOptions)
+
+		accessConstraint, err := mapConstraint(cfg.KeychainAccessConstraint)
+		if err != nil {
+			return nil, err
+		}
+
+		accessControlFlags, err := mapStringsToFlags(cfg.KeychainAccessControl)
+		if err != nil {
+			return nil, err
+		}
 
 		kc := &DataProtectionKeychain{
 			service: cfg.ServiceName,
 
-			// Set the isAccessibleWhenUnlocked to the boolean value of
-			// KeychainAccessibleWhenUnlocked is a shorthand for setting the accessibility value.
-			// See: https://developer.apple.com/documentation/security/ksecattraccessiblewhenunlocked
-			isAccessibleWhenUnlocked: cfg.KeychainAccessibleWhenUnlocked,
-
 			authenticationContext: authCtx,
+			accessControlFlags:    accessControlFlags,
+			accessConstraint:      accessConstraint,
 		}
+
+		if kc.accessConstraint == 0 {
+			kc.accessConstraint = gokeychain.AccessibleWhenUnlockedThisDeviceOnly
+		}
+
 		return kc, nil
 	})
 }
@@ -52,7 +70,10 @@ func (k *DataProtectionKeychain) Get(key string) (Item, error) {
 	query.SetMatchLimit(gokeychain.MatchLimitOne)
 	query.SetReturnAttributes(true)
 	query.SetReturnData(true)
-	query.SetAuthenticationContext(k.authenticationContext)
+	err := query.SetAuthenticationContext(k.authenticationContext)
+	if err != nil {
+		return Item{}, err
+	}
 
 	debugf("Querying item in data protection keychain for service=%q, account=%q", k.service, key)
 	results, err := gokeychain.QueryItem(query)
@@ -87,7 +108,10 @@ func (k *DataProtectionKeychain) GetMetadata(key string) (Metadata, error) {
 	query.SetReturnAttributes(true)
 	query.SetReturnData(false)
 	query.SetReturnRef(true)
-	query.SetAuthenticationContext(k.authenticationContext)
+	err := query.SetAuthenticationContext(k.authenticationContext)
+	if err != nil {
+		return Metadata{}, err
+	}
 
 	debugf("Querying keychain for metadata of service=%q, account=%q", k.service, key)
 	results, err := gokeychain.QueryItem(query)
@@ -120,7 +144,10 @@ func (k *DataProtectionKeychain) updateItem(account string, data []byte) error {
 	queryItem.SetAccount(account)
 	queryItem.SetMatchLimit(gokeychain.MatchLimitOne)
 	queryItem.SetReturnAttributes(true)
-	queryItem.SetAuthenticationContext(k.authenticationContext)
+	err := queryItem.SetAuthenticationContext(k.authenticationContext)
+	if err != nil {
+		return err
+	}
 
 	results, err := gokeychain.QueryItem(queryItem)
 	if err != nil {
@@ -153,12 +180,7 @@ func (k *DataProtectionKeychain) Set(item Item) error {
 		kcItem.SetSynchronizable(gokeychain.SynchronizableYes)
 	}
 
-	if k.isAccessibleWhenUnlocked {
-		kcItem.SetAccessible(gokeychain.AccessibleWhenUnlocked)
-	}
-
-	flags := gokeychain.AccessControlFlagsBiometryCurrentSet
-	kcItem.SetAccessControl(gokeychain.AccessControlFlags(flags))
+	kcItem.SetAccessControl(gokeychain.AccessControlFlags(k.accessControlFlags), k.accessConstraint)
 
 	debugf("Adding service=%q, label=%q, account=%q", k.service, item.Label, item.Key)
 
@@ -197,7 +219,10 @@ func (k *DataProtectionKeychain) Keys() ([]string, error) {
 	query.SetService(k.service)
 	query.SetMatchLimit(gokeychain.MatchLimitAll)
 	query.SetReturnAttributes(true)
-	query.SetAuthenticationContext(k.authenticationContext)
+	err := query.SetAuthenticationContext(k.authenticationContext)
+	if err != nil {
+		return nil, err
+	}
 
 	debugf("Querying keys in data protection keychain for service=%q", k.service)
 	results, err := gokeychain.QueryItem(query)
@@ -213,4 +238,57 @@ func (k *DataProtectionKeychain) Keys() ([]string, error) {
 	}
 
 	return accountNames, nil
+}
+
+func mapStringsToFlags(strings []string) (gokeychain.AccessControlFlags, error) {
+	var flags gokeychain.AccessControlFlags
+
+	flagMap := map[string]gokeychain.AccessControlFlags{
+		"UserPresence":        gokeychain.AccessControlFlagsUserPresence,
+		"BiometryAny":         gokeychain.AccessControlFlagsBiometryAny,
+		"BiometryCurrentSet":  gokeychain.AccessControlFlagsBiometryCurrentSet,
+		"DevicePasscode":      gokeychain.AccessControlFlagsDevicePasscode,
+		"Watch":               gokeychain.AccessControlFlagsWatch,
+		"Or":                  gokeychain.AccessControlFlagsOr,
+		"And":                 gokeychain.AccessControlFlagsAnd,
+		"PrivateKeyUsage":     gokeychain.AccessControlFlagsPrivateKeyUsage,
+		"ApplicationPassword": gokeychain.AccessControlFlagsApplicationPassword,
+	}
+
+	for _, flagString := range strings {
+		if flag, exists := flagMap[flagString]; exists {
+			flags |= flag // Combine flags using bitwise OR
+		} else {
+			return 0, fmt.Errorf("invalid access control flag: %s", flagString)
+		}
+	}
+
+	return flags, nil
+}
+
+func mapConstraint(constraint string) (gokeychain.Accessible, error) {
+	switch constraint {
+	case "AccessibleWhenUnlocked":
+		return gokeychain.AccessibleWhenUnlocked, nil
+	case "AccessibleAfterFirstUnlock":
+		return gokeychain.AccessibleAfterFirstUnlock, nil
+	case "AccessibleAfterFirstUnlockThisDeviceOnly":
+		return gokeychain.AccessibleAfterFirstUnlockThisDeviceOnly, nil
+	case "AccessibleWhenPasscodeSetThisDeviceOnly":
+		return gokeychain.AccessibleWhenPasscodeSetThisDeviceOnly, nil
+	case "AccessibleWhenUnlockedThisDeviceOnly":
+		return gokeychain.AccessibleWhenUnlockedThisDeviceOnly, nil
+	// @deprecated
+	// https://developer.apple.com/documentation/security/ksecattraccessiblealwaysthisdeviceonly
+	// https://developer.apple.com/documentation/security/ksecattraccessiblealways
+	case "AccessibleAccessibleAlwaysThisDeviceOnly":
+	case "AccessibleAlways":
+		return 0, fmt.Errorf("AccessibleAlways and AccessibleAccessibleAlwaysThisDeviceOnly have been deprecated, use AccessibleWhenUnlockedThisDeviceOnly instead")
+	case "":
+		return gokeychain.AccessibleDefault, nil
+	default:
+		return 0, fmt.Errorf("invalid access constraint: %s", constraint)
+	}
+
+	return 0, nil
 }

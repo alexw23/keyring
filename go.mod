@@ -15,7 +15,7 @@ require (
 	golang.org/x/term v0.3.0
 )
 
-replace github.com/keybase/go-keychain => github.com/alexw23/go-keychain v0.0.0-20240507010435-847fd41a29ae
+replace github.com/keybase/go-keychain => github.com/alexw23/go-keychain v0.0.0-20240507122739-81c4e0fa61ba
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

@@ -23,6 +23,15 @@ type Config struct {
 	// KeychainPasswordFunc is an optional function used to prompt the user for a password
 	KeychainPasswordFunc PromptFunc
 
+	// Access control options for the (data protection keychain)
+	KeychainAccessControl []string
+
+	// Access constraint for the (data protection keychain)
+	KeychainAccessConstraint string
+
+	// Number of seconds to allow reuse of biometrics without prompting the user
+	BioMetricsAllowableReuseDuration int // seconds
+
 	// FilePasswordFunc is a required function used to prompt the user for a password
 	FilePasswordFunc PromptFunc
 
@@ -55,7 +64,4 @@ type Config struct {
 
 	// WinCredPrefix is a string prefix to prepend to the key name
 	WinCredPrefix string
-
-	// Number of seconds to allow reuse of biometrics without prompting the user
-	BioMetricsAllowableReuseDuration int
 }

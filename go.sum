@@ -1,7 +1,7 @@
 github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 h1:/vQbFIOMbk2FiG/kXiLl8BRyzTWDw7gX/Hz7Dd5eDMs=
 github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4/go.mod h1:hN7oaIRCjzsZ2dE+yG5k+rsdt3qcwykqK6HVGcKwsw4=
-github.com/alexw23/go-keychain v0.0.0-20240507010435-847fd41a29ae h1:jH86yfrWzdkhzuCnVKUEplN8VlwlyVk5hPGooQSfRwk=
-github.com/alexw23/go-keychain v0.0.0-20240507010435-847fd41a29ae/go.mod h1:3VeWNIJaW+O5xpRQbPp0Ybqu1vJd/pm7s2F473HRrkw=
+github.com/alexw23/go-keychain v0.0.0-20240507122739-81c4e0fa61ba h1:7V7zrJ1kgyHRery2sWDTwl5kzTgHNOP5RQsRc3pAHjI=
+github.com/alexw23/go-keychain v0.0.0-20240507122739-81c4e0fa61ba/go.mod h1:3VeWNIJaW+O5xpRQbPp0Ybqu1vJd/pm7s2F473HRrkw=
 github.com/danieljoos/wincred v1.1.2 h1:QLdCxFs1/Yl4zduvBdcHB8goaYk9RARS2SgLLRuAyr0=
 github.com/danieljoos/wincred v1.1.2/go.mod h1:GijpziifJoIBfYh+S7BbkdUTU4LfM+QnGqR5Vl2tAx0=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
