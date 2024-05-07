@@ -54,7 +54,7 @@ func (k *DataProtectionKeychain) Get(key string) (Item, error) {
 	query.SetReturnData(true)
 	query.SetAuthenticationContext(k.authenticationContext)
 
-	debugf("Querying item in keychain for service=%q, account=%q", k.service, key)
+	debugf("Querying item in data protection keychain for service=%q, account=%q", k.service, key)
 	results, err := gokeychain.QueryItem(query)
 
 	if err == gokeychain.ErrorItemNotFound || len(results) == 0 {
@@ -113,7 +113,7 @@ func (k *DataProtectionKeychain) GetMetadata(key string) (Metadata, error) {
 	return md, nil
 }
 
-func (k *DataProtectionKeychain) updateItem(kcItem gokeychain.Item, account string) error {
+func (k *DataProtectionKeychain) updateItem(account string, data []byte) error {
 	queryItem := gokeychain.NewItem()
 	queryItem.SetSecClass(gokeychain.SecClassGenericPassword)
 	queryItem.SetService(k.service)
@@ -130,8 +130,11 @@ func (k *DataProtectionKeychain) updateItem(kcItem gokeychain.Item, account stri
 		return errors.New("no results")
 	}
 
-	if err := gokeychain.UpdateItem(queryItem, kcItem); err != nil {
-		return fmt.Errorf("failed to update item in keychain: %v", err)
+	updateItem := gokeychain.NewItem()
+	updateItem.SetData(data)
+
+	if err := gokeychain.UpdateItem(queryItem, updateItem); err != nil {
+		return fmt.Errorf("failed to update item in data protection keychain: %v", err)
 	}
 
 	return nil
@@ -162,8 +165,8 @@ func (k *DataProtectionKeychain) Set(item Item) error {
 	err := gokeychain.AddItem(kcItem)
 
 	if err == gokeychain.ErrorDuplicateItem {
-		debugf("Item already exists, updating")
-		err = k.updateItem(kcItem, item.Key)
+		debugf("Item already exists, updating item service=%q, account=%q", k.service, item.Key)
+		err = k.updateItem(item.Key, item.Data)
 	}
 
 	if err != nil {
@@ -179,7 +182,7 @@ func (k *DataProtectionKeychain) Remove(key string) error {
 	item.SetService(k.service)
 	item.SetAccount(key)
 
-	debugf("Removing keychain item service=%q, account=%q", k.service)
+	debugf("Removing keychain item service=%q, account=%q", k.service, key)
 	err := gokeychain.DeleteItem(item)
 	if err == gokeychain.ErrorItemNotFound {
 		return ErrKeyNotFound
@@ -196,7 +199,7 @@ func (k *DataProtectionKeychain) Keys() ([]string, error) {
 	query.SetReturnAttributes(true)
 	query.SetAuthenticationContext(k.authenticationContext)
 
-	debugf("Querying keys in keychain for service=%q", k.service)
+	debugf("Querying keys in data protection keychain for service=%q", k.service)
 	results, err := gokeychain.QueryItem(query)
 	if err != nil {
 		return nil, err
